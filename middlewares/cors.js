@@ -1,6 +1,7 @@
 const allowedCors = [
   'http://moviessite.nomorepartiesxyz.ru',
   'https://moviessite.nomorepartiesxyz.ru',
+  'moviessite.nomorepartiesxyz.ru',
   'http://localhost:3000',
   'https://localhost:3000',
 ];

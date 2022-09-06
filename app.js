@@ -1,20 +1,14 @@
 require('dotenv').config();
 const express = require('express');
-
-const router = express.Router();
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const auth = require('./middlewares/auth');
+const router = require('./routes');
 const cors = require('./middlewares/cors');
-const NotFoundError = require('./errors/NotFoundError');
 const errorHandler = require('./middlewares/errorHandler');
 const { requestLogger, errorLogger } = require('./middlewares/logger');
-
-const celebrates = require('./middlewares/celebrates');
-const { createUser, login } = require('./controllers/users');
 
 // Слушаем 3000 порт
 const { PORT = 3000 } = process.env;
@@ -27,7 +21,7 @@ mongoose.connect('mongodb://localhost:27017/diplomdb', {
   useUnifiedTopology: true,
 });
 
-app.use('/', router); // запускаем
+//app.use('/', router); // запускаем
 
 app.use(bodyParser.json());
 app.use(
@@ -49,26 +43,7 @@ app.use(requestLogger);
 app.use(limiter);
 app.use(cors);
 app.use(helmet());
-
-app.post('/signin', celebrates.signIn, login);
-app.post('/signup', celebrates.signUp, createUser);
-
-app.use(auth);
-
-// Краш-тест сервера
-app.get('/crash-test', auth, () => {
-  setTimeout(() => {
-    throw new Error('Сервер сейчас упадёт');
-  }, 0);
-});
-
-// Роуты, которым нужна авторизация
-app.use('/users', auth, require('./routes/users'));
-app.use('/movies', auth, require('./routes/movies'));
-
-app.use('*', auth, (req, res, next) => {
-  next(new NotFoundError('Страница не найдена'));
-});
+app.use(router);
 
 // Подключаем логгер ошибок
 app.use(errorLogger);
