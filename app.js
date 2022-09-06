@@ -21,7 +21,7 @@ mongoose.connect('mongodb://localhost:27017/diplomdb', {
   useUnifiedTopology: true,
 });
 
-//app.use('/', router); // запускаем
+app.use('/', router); // запускаем
 
 app.use(bodyParser.json());
 app.use(
@@ -43,7 +43,6 @@ app.use(requestLogger);
 app.use(limiter);
 app.use(cors);
 app.use(helmet());
-app.use(router);
 
 // Подключаем логгер ошибок
 app.use(errorLogger);

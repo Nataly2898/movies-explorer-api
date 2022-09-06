@@ -23,4 +23,4 @@ router.use('*', auth, (req, res, next) => {
   next(new NotFoundError('Страница не найдена'));
 });
 
-module.exports = { router };
+module.exports = router;
