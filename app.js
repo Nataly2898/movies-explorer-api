@@ -1,11 +1,12 @@
 require('dotenv').config();
 const express = require('express');
+
+const router = express.Router();
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const { errors } = require('celebrate');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const router = require('./routes');
 const cors = require('./middlewares/cors');
 const errorHandler = require('./middlewares/errorHandler');
 const { requestLogger, errorLogger } = require('./middlewares/logger');
@@ -21,7 +22,7 @@ mongoose.connect('mongodb://localhost:27017/diplomdb', {
   useUnifiedTopology: true,
 });
 
-app.use('/', router); // запускаем
+app.use('/', router);
 
 app.use(bodyParser.json());
 app.use(
@@ -43,6 +44,8 @@ app.use(requestLogger);
 app.use(limiter);
 app.use(cors);
 app.use(helmet());
+
+app.use(require('./routes/index')); // запускаем
 
 // Подключаем логгер ошибок
 app.use(errorLogger);
