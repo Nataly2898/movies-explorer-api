@@ -4,83 +4,96 @@ const User = require('../models/user');
 const ExistingEmailError = require('../errors/ExistingEmailError');
 const IncorrectRequestError = require('../errors/IncorrectRequestError');
 const NotFoundError = require('../errors/NotFoundError');
-const NotAuthorizationError = require('../errors/NotAuthorizationError');
-
-const { NODE_ENV, JWT_SECRET } = process.env;
+const { NODE_ENV, JWT_SECRET, JWT_SECRET_DEV } = require('../utils/configData');
 
 // Создание нового пользователя
-module.exports.createUser = (req, res, next) => {
-  const {
-    email, password, name,
-  } = req.body;
+module.exports.createUser = async (req, res, next) => {
+  try {
+    const { name, email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (user) {
+      return next(new ExistingEmailError(`Пользователь с ${email} уже существует.`));
+    }
 
-  bcrypt.hash(password, 10)
-    .then((hash) => User.create({
+    const hash = await bcrypt.hash(password, 10);
+    const newUser = await User.create({
       email,
       password: hash,
       name,
-    }))
-    .then((user) => res.status(201).send({
-      name: user.name,
-      _id: user._id,
-      email: user.email,
-    }))
-    .catch((err) => {
-      if (err.name === 'MongoServerError' && err.code === 11000) {
-        next(new ExistingEmailError('Пользователь с таким email уже существует'));
-      } else if (err.name === 'ValidationError') {
-        next(new IncorrectRequestError('Ошибка валидации данных'));
-      } else next(err);
     });
+    return res.status(200).send({
+      name: newUser.name,
+      _id: newUser._id,
+      email: newUser.email,
+    });
+  } catch (err) {
+    if (err.name === 'ValidationError') {
+      return next(new IncorrectRequestError('Переданы неверные данные.'));
+    }
+    return next(err);
+  }
 };
 
 // Аутентификация пользователя
-module.exports.login = (req, res, next) => {
-  const { email, password } = req.body;
-  return User.findUserByCredentials(email, password)
-    .then((user) => {
+module.exports.login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return next(new IncorrectRequestError('Неверный email или пароль.'));
+    }
+    const user = await User.findUserByCredentials(email, password);
+    if (user) {
       // создадим токен
       const token = jwt.sign(
         { _id: user._id },
-        NODE_ENV === 'production' ? JWT_SECRET : 'some-secret-key',
+        NODE_ENV === 'production' ? JWT_SECRET : JWT_SECRET_DEV,
         {
           expiresIn: '7d',
         },
       );
-
       // вернём токен
-      res.send({ token });
-    })
-    .catch(() => next(new NotAuthorizationError('Неверный email или пароль.')));
+      return res.send({ token });
+    }
+    return res.status(201).send('Вы авторизованы.');
+  } catch (err) {
+    return next(err);
+  }
 };
 
 // Возвращает информацию о пользователе
-module.exports.getCurrentUser = (req, res, next) => {
-  const { _id } = req.user;
-  User.findById(_id).then((user) => {
-    // проверяем, есть ли пользователь с таким id
-    if (!user) {
+module.exports.getCurrentUser = async (req, res, next) => {
+  try {
+    const { _id } = req.user;
+    const currentUser = await User.findById(_id);
+    if (!currentUser) {
       return next(new NotFoundError('Пользователь не найден.'));
     }
-
-    // возвращаем пользователя, если он есть
-    return res.send(user);
-  });
+    return res.status(200).send({
+      name: currentUser.name,
+      email: currentUser.email,
+    });
+  } catch (err) {
+    return next(err);
+  }
 };
 
 // Обновление информации о пользователе
-module.exports.updateProfile = (req, res, next) => {
-  const { name, email } = req.body;
-  User.findByIdAndUpdate(
-    req.user._id,
-    { name, email },
-    { new: true, runValidators: true },
-  )
-    .then((user) => res.send(user))
-    .catch((err) => {
-      if (err.name === 'ValidationError') {
-        return next(new IncorrectRequestError('Неверный тип данных.'));
-      }
-      return next(err);
+module.exports.updateProfile = async (req, res, next) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { name, email },
+      { new: true, runValidators: true }
+    );
+    return res.status(200).send({
+      name: user.name,
+      email: user.email,
     });
+  } catch (err) {
+    if (err.name === 'ValidationError') {
+      return next(new IncorrectRequestError('Неверный тип данных.'));
+    }
+    return next(err);
+  }
 };

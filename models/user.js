@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
-const validator = require('validator');
 const bcrypt = require('bcrypt');
+const isEmail = require('validator/lib/isEmail');
+const NotAuthorizationError = require('../errors/NotAuthorizationError');
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -8,7 +9,7 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
     validate: {
-      validator: (v) => validator.isEmail(v),
+      validator: (v) => isEmail(v),
       message: 'Неправильный формат почты',
     },
   },
@@ -25,25 +26,20 @@ const userSchema = new mongoose.Schema({
 });
 
 // Проверка почты и пароля
-/* eslint-disable-next-line func-names */
 userSchema.statics.findUserByCredentials = function (email, password) {
-  // Попытаемся найти пользователя по почте
-  return this.findOne({ email })
-    .select('+password')
-    .then((user) => {
-      // Не нашёлся — отклоняем промис
-      if (!user) {
-        return Promise.reject(new Error('Неправильные почта или пароль'));
-      }
-      // Нашёлся — сравниваем хеши
-      return bcrypt.compare(password, user.password).then((matched) => {
-        if (!matched) {
-          return Promise.reject(new Error('Неправильные почта или пароль'));
-        }
+  return this.findOne({ email }).select('+password').then((user) => {
+    if (!user) {
+      throw new NotAuthorizationError('Неправильные почта или пароль');
+    }
 
-        return user; // user доступен
-      });
+    return bcrypt.compare(password, user.password).then((matched) => {
+      if (!matched) {
+        throw new NotAuthorizationError('Неправильные почта или пароль');
+      }
+
+      return user;
     });
+  });
 };
 
 module.exports = mongoose.model('user', userSchema);
